@@ -1,5 +1,6 @@
-﻿using System.Collections.ObjectModel;
-using System.ComponentModel;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -7,63 +8,6 @@ using System.Windows.Input;
 
 namespace WpfApp19
 {
-    public enum ThreadStatus
-    {
-        Initialized,
-        Pending,
-        InProgress,
-        Terminated
-    }
-
-    public class TaskThread : INotifyPropertyChanged
-    {
-        public int TaskId { get; }
-        private ThreadStatus threadStatus;
-        public ThreadStatus Status
-        {
-            get => threadStatus;
-            set
-            {
-                threadStatus = value;
-                OnPropertyChanged(nameof(Status));
-                OnPropertyChanged(nameof(StatusInfo));
-            }
-        }
-
-        private int taskCounter;
-        public int Counter
-        {
-            get => taskCounter;
-            set
-            {
-                taskCounter = value;
-                OnPropertyChanged(nameof(Counter));
-                OnPropertyChanged(nameof(StatusInfo));
-            }
-        }
-
-        public DateTime TaskStartTime { get; set; }
-        public CancellationTokenSource CancellationToken { get; }
-        public bool IsForcedStop { get; set; }
-
-        public string StatusInfo => $"Задача {TaskId} –> Счётчик: {Counter} –> {Status}";
-
-        public TaskThread(int taskId)
-        {
-            TaskId = taskId;
-            Status = ThreadStatus.Initialized;
-            Counter = 0;
-            CancellationToken = new CancellationTokenSource();
-            IsForcedStop = false;
-        }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged(string propertyName)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-    }
-
     public partial class MainWindow : Window
     {
         private int nextTaskId = 1;
@@ -86,7 +30,7 @@ namespace WpfApp19
             lbActive.ItemsSource = activeThreads;
 
             maxConcurrentTasks = GetMaxConcurrentTasks();
-            threadSemaphore = new SemaphoreSlim(maxConcurrentTasks, int.MaxValue);
+            threadSemaphore = new SemaphoreSlim(maxConcurrentTasks, maxConcurrentTasks);
         }
 
         private int GetMaxConcurrentTasks()
@@ -163,13 +107,13 @@ namespace WpfApp19
             catch (TaskCanceledException) { }
             finally
             {
-                threadSemaphore.Release();
-
                 Dispatcher.Invoke(() =>
                 {
                     activeThreads.Remove(task);
                     task.Status = ThreadStatus.Terminated;
                 });
+
+                threadSemaphore.Release();
             }
         }
 
